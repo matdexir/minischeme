@@ -53,6 +53,9 @@ def standard_env() -> Env:
     return env
 
 
+global_env = standard_env()
+
+
 def tokenize(chars: str) -> list:
     # converts a string of characters into a list of tokens
     return chars.replace("(", " ( ").replace(")", " ) ").split()
