@@ -91,3 +91,36 @@ def atom(token: str) -> Atom:
             return float(token)
         except ValueError:
             return Symbol(token)
+
+
+def eval(x: Exp, env=global_env) -> Exp:
+    # evaluate an expression in an env
+    if isinstance(x, Symbol):  # ref to variable
+        return env[x]
+    elif isinstance(x, Number):  # constant number
+        return x
+    elif x[0] == "if":
+        (_, test, conseq, alt) = x
+        exp = conseq if eval(test, env) else alt
+        return eval(exp, env)
+    elif x[0] == "define":
+        (_, symbol, exp) = x
+        env[symbol] = eval(exp, env)
+    else:
+        proc = eval(x[0], env)
+        args = [eval(arg, env) for arg in x[1:]]
+        return proc(*args)
+
+
+def repl(prompt="minischeme> "):
+    while True:
+        val = eval(parse(input(prompt)))
+        if val is not None:
+            print(schemestr(val))
+
+
+def schemestr(exp: Exp) -> str:
+    if isinstance(exp, List):
+        return "(" + " ".join(map(schemestr, exp)) + ")"
+    else:
+        return str(exp)
