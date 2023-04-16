@@ -124,3 +124,7 @@ def schemestr(exp: Exp) -> str:
         return "(" + " ".join(map(schemestr, exp)) + ")"
     else:
         return str(exp)
+
+
+if __name__ == "__main__":
+    repl()
