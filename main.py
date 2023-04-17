@@ -1,5 +1,6 @@
 import math
 import operator as op
+# from code import InteractiveConsole
 from typing import Union
 
 Symbol = str
@@ -109,33 +110,44 @@ def atom(token: str) -> Atom:
             return Symbol(token)
 
 
-def eval(x: Exp, env=global_env) -> Exp:
+def eval(x: Exp, env=global_env):
     # evaluate an expression in an env
     if isinstance(x, Symbol):  # ref to variable
-        return env[x]
-    elif isinstance(x, Number):  # constant number
+        return env.find(x)[x]
+    elif not isinstance(x, List):  # constant
         return x
-    elif x[0] == "if":
-        (_, test, conseq, alt) = x
+    op, *args = x
+    if op == "quote":
+        return args[0]
+    elif op == "if":
+        (test, conseq, alt) = args
         exp = conseq if eval(test, env) else alt
         return eval(exp, env)
-    elif x[0] == "define":
-        (_, symbol, exp) = x
+    elif op == "define":
+        (symbol, exp) = args
         env[symbol] = eval(exp, env)
+    elif op == "set!":
+        (symbol, exp) = args
+        env.find(symbol)[symbol] = eval(exp, env)
+    elif op == "lambda":
+        (parms, body) = args
+        return Procedure(parms, body, env)
     else:
-        proc = eval(x[0], env)
-        args = [eval(arg, env) for arg in x[1:]]
-        return proc(*args)
+        proc = eval(op, env)
+        vals = [eval(arg, env) for arg in args]
+        return proc(*vals)
 
 
 def repl(prompt="minischeme> "):
     while True:
-        val = eval(parse(input(prompt)))
+        val = parse(input(prompt))
+        print(val)
+        val = eval(val)
         if val is not None:
             print(schemestr(val))
 
 
-def schemestr(exp: Exp) -> str:
+def schemestr(exp) -> str:
     if isinstance(exp, List):
         return "(" + " ".join(map(schemestr, exp)) + ")"
     else:
