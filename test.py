@@ -9,9 +9,14 @@ class TestTokenize(unittest.TestCase):
             "(define r 10)",
             "(+ 1 1)",
             "(* 10 (+ 8 8))",
-            "(* (+ 3 (* 7 9) (/ 4 (+ 8 1))))",
+            # "(* (+ 3 (* 7 9) (/ 4 (+ 8 1))))",
         ]
         self.assertEqual(main.tokenize(expressions[0]), ["(", "define", "r", "10", ")"])
+        self.assertEqual(main.tokenize(expressions[1]), ["(", "+", "1", "1", ")"])
+        self.assertEqual(
+            main.tokenize(expressions[2]),
+            ["(", "*", "10", "(", "+", "8", "8", ")", ")"],
+        )
 
 
 if __name__ == "__main__":
