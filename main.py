@@ -7,7 +7,18 @@ Number = Union[int, float]
 Atom = Union[Symbol, Number]
 List = list
 Exp = Union[Atom, List]
-Env = dict
+# Env = dict
+
+
+class Env(dict):
+    outer: Union[Exp, None]
+
+    def __init__(self, parms=(), args=(), outer=None):
+        self.update(zip(parms, args))
+        self.outer = outer
+
+    def find(self, var):
+        return self if (var in self) else self.outer.find(var)
 
 
 def standard_env() -> Env:
@@ -75,7 +86,7 @@ def read_from_tokens(tokens: list) -> Exp:
         L = []
         while tokens[0] != ")":
             L.append(read_from_tokens(tokens))
-        tokens.pop(0)  # pop of #
+        tokens.pop(0)  # pop of )
         return L
     elif token == ")":
         raise SyntaxError("unexpected )")
