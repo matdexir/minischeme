@@ -7,18 +7,23 @@ Number = Union[int, float]
 Atom = Union[Symbol, Number]
 List = list
 Exp = Union[Atom, List]
-# Env = dict
 
 
 class Env(dict):
-    outer: Union[Exp, None]
-
     def __init__(self, parms=(), args=(), outer=None):
         self.update(zip(parms, args))
         self.outer = outer
 
     def find(self, var):
         return self if (var in self) else self.outer.find(var)
+
+
+class Procedure(object):
+    def __init__(self, parms, body, env):
+        self.parms, self.body, self.env = parms, body, env
+
+    def __call__(self, *args):
+        return eval(self.body, Env(self.parms, args, self.env))
 
 
 def standard_env() -> Env:
