@@ -1,6 +1,5 @@
 import math
 import operator as op
-# from code import InteractiveConsole
 from typing import Union
 
 Symbol = str
