@@ -1,9 +1,18 @@
+import atexit
 import math
 import operator as op
-import readline
+import os
+import readline as rl
 from typing import Union
 
-readline.parse_and_bind("set editing-mode vi")
+histfile = os.path.join(os.path.expanduser("."), ".mscm_histfile")
+rl.parse_and_bind("set editing-mode vi")
+
+try:
+    rl.read_history_file(histfile)
+except FileNotFoundError:
+    os.mknod(histfile)
+
 
 Symbol = str
 Number = Union[int, float]
@@ -142,8 +151,12 @@ def eval(x: Exp, env=global_env):
 
 def repl(prompt="minischeme> "):
     while True:
-        val = parse(input(prompt))
-        print(val)
+        val = input(prompt)
+        if val == "quit" or val == "exit":
+            print("Exiting...")
+            break
+        val = parse(val)
+        # print(val)
         val = eval(val)
         if val is not None:
             print(schemestr(val))
@@ -156,5 +169,12 @@ def schemestr(exp) -> str:
         return str(exp)
 
 
+@atexit.register
+def goodbye_msg():
+    print("Goodbye!")
+
+
 if __name__ == "__main__":
     repl()
+
+atexit.register(rl.write_history_file, histfile)
