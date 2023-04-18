@@ -3,6 +3,8 @@ import operator as op
 import readline
 from typing import Union
 
+readline.parse_and_bind("set editing-mode vi")
+
 Symbol = str
 Number = Union[int, float]
 Atom = Union[Symbol, Number]
