@@ -1,5 +1,6 @@
 import math
 import operator as op
+import readline
 from typing import Union
 
 Symbol = str
