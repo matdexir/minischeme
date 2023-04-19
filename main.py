@@ -2,6 +2,7 @@ import atexit
 import math
 import operator as op
 import os
+import pprint
 import readline as rl
 from typing import Union
 
@@ -27,7 +28,12 @@ class Env(dict):
         self.outer = outer
 
     def find(self, var):
-        return self if (var in self) else self.outer.find(var)
+        pprint.pprint(self.keys())
+        if var in self:
+            return self
+        if self.outer:
+            return self.outer.find(var)
+        # return self if (var in self) else self.outer.find(var)
 
 
 class Procedure(object):
@@ -153,10 +159,10 @@ def repl(prompt="minischeme> "):
     while True:
         val = input(prompt)
         if val == "quit" or val == "exit":
-            print("Exiting...")
+            # print("Exiting...")
             break
         val = parse(val)
-        # print(val)
+        # pprint.pprint(val)
         val = eval(val)
         if val is not None:
             print(schemestr(val))
