@@ -3,6 +3,7 @@ import math
 import operator as op
 import os
 import pprint
+import re
 import readline as rl
 from typing import Union
 
@@ -15,7 +16,47 @@ except FileNotFoundError:
     os.mknod(histfile)
 
 
-Symbol = str
+class Symbol(str):
+    pass
+
+
+def Sym(s, symbol_table={}):
+    if s not in symbol_table:
+        symbol_table[s] = Symbol(s)
+    return symbol_table[s]
+
+
+_quote, _if, _set, _define, _lambda, _begin, _definemacro = map(
+    Sym, "quote if set! define lambda begin define-macro".split()
+)
+
+_quasiquote, _unquote, _unquotesplicing = map(
+    Sym, "quasiquote unquote unquote-splicing".split()
+)
+
+eof_object = Symbol("#<eof-object>")
+
+
+class InPort(object):
+    "An input port. Retains a line of chars"
+    tokenizer = r"""\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"""
+
+    def __init__(self, file) -> None:
+        self.file = file
+        self.line = ""
+
+    def next_token(self):
+        "returns the next token, reading new text into line buffer if needed"
+        while True:
+            if self.line == "":
+                self.line = self.file.readline()
+            if self.line == "":
+                return eof_object
+            token, self.line = re.match(InPort.tokenizer, self.line).groups()
+            if token != "" and not token.startswith(";"):
+                return token
+
+
 Number = Union[int, float]
 Atom = Union[Symbol, Number]
 List = list
