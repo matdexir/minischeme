@@ -6,6 +6,7 @@ import os
 import pprint
 import re
 import readline as rl
+import sys
 from typing import Union
 
 histfile = os.path.join(os.path.expanduser("."), ".mscm_histfile")
@@ -113,6 +114,28 @@ def to_string(x):
         return str(x).replace("j", "i")
     else:
         return str(x)
+
+
+def load(filename):
+    "Eval every expression from a file"
+    repl(None, InPort(open(filename)), None)
+
+
+def repl(prompt="minischeme> ", inport=InPort(sys.stdin), out=sys.stdout):
+    "A prompt read-eval-print loop"
+    sys.stderr.write("minischeme 2.0\n")
+    while True:
+        try:
+            if prompt:
+                sys.stderr.write(prompt)
+            x = parse(inport)
+            if x is eof_object:
+                return
+            val = eval(x)
+            if val is not None and out:
+                print(to_string(val), file=out)
+        except Exception as e:
+            print(f"{type(e).__name__}: {e}")
 
 
 class InPort(object):
@@ -237,7 +260,7 @@ def read_from_tokens(tokens: list):
         return atom(token)
 
 
-def eval(x: Exp, env=global_env):
+def eval(x):
     # evaluate an expression in an env
     if isinstance(x, Symbol):  # ref to variable
         return env.find(x)[x]
@@ -263,19 +286,6 @@ def eval(x: Exp, env=global_env):
         proc = eval(op, env)
         vals = [eval(arg, env) for arg in args]
         return proc(*vals)
-
-
-def repl(prompt="minischeme> "):
-    while True:
-        val = input(prompt)
-        if val == "quit" or val == "exit":
-            # print("Exiting...")
-            break
-        val = parse(val)
-        # pprint.pprint(val)
-        val = eval(val)
-        if val is not None:
-            print(schemestr(val))
 
 
 def schemestr(exp) -> str:
