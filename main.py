@@ -1,19 +1,25 @@
 import atexit
+import cmath
 import math
 import operator as op
 import os
 import pprint
 import re
 import readline as rl
+import sys
 from typing import Union
 
 histfile = os.path.join(os.path.expanduser("."), ".mscm_histfile")
 rl.parse_and_bind("set editing-mode vi")
 
+
 try:
     rl.read_history_file(histfile)
 except FileNotFoundError:
     os.mknod(histfile)
+
+
+isa = isinstance
 
 
 class Symbol(str):
@@ -35,6 +41,101 @@ _quasiquote, _unquote, _unquotesplicing = map(
 )
 
 eof_object = Symbol("#<eof-object>")
+
+
+def readchar(inport):
+    "Read the next character from an input port."
+    if inport.line != "":
+        ch, inport.line = input.line[0], inport.line[1:]
+        return ch
+    else:
+        return inport.file.read(1) or eof_object
+
+
+def read(inport):
+    "Read a Scheme expression from an input port"
+
+    def read_ahead(token):
+        if "(" == token:
+            L = []
+            while True:
+                token = inport.next_token()
+                if token == ")":
+                    return L
+                else:
+                    L.append(read_ahead(token))
+        elif ")" == token:
+            raise SyntaxError("unexpected )")
+        elif token in quotes:
+            return [quotes[token], read(inport)]
+        elif token is eof_object:
+            raise SyntaxError("unexpected EOF in list")
+        else:
+            return atom(token)
+
+
+quotes = {"'": _quote, "`": _quasiquote, ",": _unquote, ",@": _unquotesplicing}
+
+
+def atom(token):
+    "Numbers become numbers; #t and #f are boolean; '...' string; otherwise Symbol"
+    if token == "#t":
+        return True
+    elif token == "#f":
+        return False
+    elif token[0] == '"':
+        return token[1:-1].decode("string_escape")
+    try:
+        return int(token)
+    except ValueError:
+        try:
+            return float(token)
+        except ValueError:
+            try:
+                return complex(token.replace("i", "j", 1))
+            except ValueError:
+                return Sym(token)
+
+
+def to_string(x):
+    "Convert a Python object back into a Lisp-readable string."
+    if x is True:
+        return "#t"
+    elif x is False:
+        return "#f"
+    elif isa(x, Symbol):
+        return x
+    elif isa(x, str):
+        x = x.encode("string_escape").replace('"', r"\"")
+        return f"{x}"
+    elif isa(x, list):
+        return "(" + " ".join(map(to_string, x)) + ")"
+    elif isa(x, complex):
+        return str(x).replace("j", "i")
+    else:
+        return str(x)
+
+
+def load(filename):
+    "Eval every expression from a file"
+    repl(None, InPort(open(filename)), None)
+
+
+def repl(prompt="minischeme> ", inport=InPort(sys.stdin), out=sys.stdout):
+    "A prompt read-eval-print loop"
+    sys.stderr.write("minischeme 2.0\n")
+    while True:
+        try:
+            if prompt:
+                sys.stderr.write(prompt)
+            x = parse(inport)
+            if x is eof_object:
+                return
+            val = eval(x)
+            if val is not None and out:
+                print(to_string(val), file=out)
+        except Exception as e:
+            print(f"{type(e).__name__}: {e}")
 
 
 class InPort(object):
@@ -89,6 +190,7 @@ def standard_env() -> Env:
     # defining an environment with some scheme standards
     env = Env()
     env.update(vars(math))
+    env.update(vars(cmath))
     env.update(
         {
             "+": op.add,
@@ -131,17 +233,17 @@ def standard_env() -> Env:
 global_env = standard_env()
 
 
-def tokenize(chars: str) -> list:
+def tokenize(chars: str):
     # converts a string of characters into a list of tokens
     return chars.replace("(", " ( ").replace(")", " ) ").split()
 
 
-def parse(program: str) -> Exp:
+def parse(program: str):
     # reads a scheme expression from a string
     return read_from_tokens(tokenize(program))
 
 
-def read_from_tokens(tokens: list) -> Exp:
+def read_from_tokens(tokens: list):
     # read an expression from a sequence of tokens
     if len(tokens) == 0:
         raise SyntaxError("unexpected EOF")
@@ -158,55 +260,42 @@ def read_from_tokens(tokens: list) -> Exp:
         return atom(token)
 
 
-def atom(token: str) -> Atom:
-    try:
-        return int(token)
-    except ValueError:
-        try:
-            return float(token)
-        except ValueError:
-            return Symbol(token)
-
-
-def eval(x: Exp, env=global_env):
+def eval(x, env=global_env):
     # evaluate an expression in an env
-    if isinstance(x, Symbol):  # ref to variable
-        return env.find(x)[x]
-    elif not isinstance(x, List):  # constant
-        return x
-    op, *args = x
-    if op == "quote":
-        return args[0]
-    elif op == "if":
-        (test, conseq, alt) = args
-        exp = conseq if eval(test, env) else alt
-        return eval(exp, env)
-    elif op == "define":
-        (symbol, exp) = args
-        env[symbol] = eval(exp, env)
-    elif op == "set!":
-        (symbol, exp) = args
-        env.find(symbol)[symbol] = eval(exp, env)
-    elif op == "lambda":
-        (parms, body) = args
-        return Procedure(parms, body, env)
-    else:
-        proc = eval(op, env)
-        vals = [eval(arg, env) for arg in args]
-        return proc(*vals)
-
-
-def repl(prompt="minischeme> "):
     while True:
-        val = input(prompt)
-        if val == "quit" or val == "exit":
-            # print("Exiting...")
-            break
-        val = parse(val)
-        # pprint.pprint(val)
-        val = eval(val)
-        if val is not None:
-            print(schemestr(val))
+        if isa(x, Symbol):  # variable reference
+            return env.find(x)[x]
+        elif not isa(x, list):  # constant literal
+            return x
+        elif x[0] is _quote:  # (quote exp)
+            (_, exp) = x
+            return exp
+        elif x[0] is _if:  # (if test conseq alt)
+            (_, test, conseq, alt) = x
+            x = conseq if eval(test, env) else alt
+        elif x[0] is _set:  # (set! var exp)
+            (_, var, exp) = x
+            env.find(var)[var] = eval(exp, env)
+            return None
+        elif x[0] is _define:  # (define var exp)
+            (_, var, exp) = x
+            env[var] = eval(exp, env)
+            return None
+        elif x[0] is _lambda:  # (lambda (var*) exp)
+            (_, vars, exp) = x
+            return Procedure(vars, exp, env)
+        elif x[0] is _begin:  # (begin exp+)
+            for exp in x[1:-1]:
+                eval(exp, env)
+            x = x[-1]
+        else:  # (proc exp*)
+            exps = [eval(exp, env) for exp in x]
+            proc = exps.pop(0)
+            if isa(proc, Procedure):
+                x = proc.exp
+                env = Env(proc.parms, exps, proc.env)
+            else:
+                return proc(*exps)
 
 
 def schemestr(exp) -> str:
