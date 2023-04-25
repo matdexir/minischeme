@@ -260,32 +260,42 @@ def read_from_tokens(tokens: list):
         return atom(token)
 
 
-def eval(x):
+def eval(x, env=global_env):
     # evaluate an expression in an env
-    if isinstance(x, Symbol):  # ref to variable
-        return env.find(x)[x]
-    elif not isinstance(x, List):  # constant
-        return x
-    op, *args = x
-    if op == "quote":
-        return args[0]
-    elif op == "if":
-        (test, conseq, alt) = args
-        exp = conseq if eval(test, env) else alt
-        return eval(exp, env)
-    elif op == "define":
-        (symbol, exp) = args
-        env[symbol] = eval(exp, env)
-    elif op == "set!":
-        (symbol, exp) = args
-        env.find(symbol)[symbol] = eval(exp, env)
-    elif op == "lambda":
-        (parms, body) = args
-        return Procedure(parms, body, env)
-    else:
-        proc = eval(op, env)
-        vals = [eval(arg, env) for arg in args]
-        return proc(*vals)
+    while True:
+        if isa(x, Symbol):  # variable reference
+            return env.find(x)[x]
+        elif not isa(x, list):  # constant literal
+            return x
+        elif x[0] is _quote:  # (quote exp)
+            (_, exp) = x
+            return exp
+        elif x[0] is _if:  # (if test conseq alt)
+            (_, test, conseq, alt) = x
+            x = conseq if eval(test, env) else alt
+        elif x[0] is _set:  # (set! var exp)
+            (_, var, exp) = x
+            env.find(var)[var] = eval(exp, env)
+            return None
+        elif x[0] is _define:  # (define var exp)
+            (_, var, exp) = x
+            env[var] = eval(exp, env)
+            return None
+        elif x[0] is _lambda:  # (lambda (var*) exp)
+            (_, vars, exp) = x
+            return Procedure(vars, exp, env)
+        elif x[0] is _begin:  # (begin exp+)
+            for exp in x[1:-1]:
+                eval(exp, env)
+            x = x[-1]
+        else:  # (proc exp*)
+            exps = [eval(exp, env) for exp in x]
+            proc = exps.pop(0)
+            if isa(proc, Procedure):
+                x = proc.exp
+                env = Env(proc.parms, exps, proc.env)
+            else:
+                return proc(*exps)
 
 
 def schemestr(exp) -> str:
