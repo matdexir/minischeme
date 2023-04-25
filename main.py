@@ -37,6 +37,40 @@ _quasiquote, _unquote, _unquotesplicing = map(
 eof_object = Symbol("#<eof-object>")
 
 
+def readchar(inport):
+    "Read the next character from an input port."
+    if inport.line != "":
+        ch, inport.line = input.line[0], inport.line[1:]
+        return ch
+    else:
+        return inport.file.read(1) or eof_object
+
+
+def read(inport):
+    "Read a Scheme expression from an input port"
+
+    def read_ahead(token):
+        if "(" == token:
+            L = []
+            while True:
+                token = inport.next_token()
+                if token == ")":
+                    return L
+                else:
+                    L.append(read_ahead(token))
+        elif ")" == token:
+            raise SyntaxError("unexpected )")
+        elif token in quotes:
+            return [quotes[token], read(inport)]
+        elif token is eof_object:
+            raise SyntaxError("unexpected EOF in list")
+        else:
+            return atom(token)
+
+
+quotes = {"'": _quote, "`": _quasiquote, ",": _unquote, ",@": _unquotesplicing}
+
+
 class InPort(object):
     "An input port. Retains a line of chars"
     tokenizer = r"""\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"""
