@@ -1,4 +1,5 @@
 import atexit
+import cmath
 import math
 import operator as op
 import os
@@ -10,10 +11,14 @@ from typing import Union
 histfile = os.path.join(os.path.expanduser("."), ".mscm_histfile")
 rl.parse_and_bind("set editing-mode vi")
 
+
 try:
     rl.read_history_file(histfile)
 except FileNotFoundError:
     os.mknod(histfile)
+
+
+isa = isinstance
 
 
 class Symbol(str):
@@ -91,6 +96,25 @@ def atom(token):
                 return Sym(token)
 
 
+def to_string(x):
+    "Convert a Python object back into a Lisp-readable string."
+    if x is True:
+        return "#t"
+    elif x is False:
+        return "#f"
+    elif isa(x, Symbol):
+        return x
+    elif isa(x, str):
+        x = x.encode("string_escape").replace('"', r"\"")
+        return f"{x}"
+    elif isa(x, list):
+        return "(" + " ".join(map(to_string, x)) + ")"
+    elif isa(x, complex):
+        return str(x).replace("j", "i")
+    else:
+        return str(x)
+
+
 class InPort(object):
     "An input port. Retains a line of chars"
     tokenizer = r"""\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"""
@@ -143,6 +167,7 @@ def standard_env() -> Env:
     # defining an environment with some scheme standards
     env = Env()
     env.update(vars(math))
+    env.update(vars(cmath))
     env.update(
         {
             "+": op.add,
