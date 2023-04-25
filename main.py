@@ -71,6 +71,26 @@ def read(inport):
 quotes = {"'": _quote, "`": _quasiquote, ",": _unquote, ",@": _unquotesplicing}
 
 
+def atom(token):
+    "Numbers become numbers; #t and #f are boolean; '...' string; otherwise Symbol"
+    if token == "#t":
+        return True
+    elif token == "#f":
+        return False
+    elif token[0] == '"':
+        return token[1:-1].decode("string_escape")
+    try:
+        return int(token)
+    except ValueError:
+        try:
+            return float(token)
+        except ValueError:
+            try:
+                return complex(token.replace("i", "j", 1))
+            except ValueError:
+                return Sym(token)
+
+
 class InPort(object):
     "An input port. Retains a line of chars"
     tokenizer = r"""\s*(,@|[('`,)]|"(?:[\\].|[^\\"])*"|;.*|[^\s('"`,;)]*)(.*)"""
@@ -165,17 +185,17 @@ def standard_env() -> Env:
 global_env = standard_env()
 
 
-def tokenize(chars: str) -> list:
+def tokenize(chars: str):
     # converts a string of characters into a list of tokens
     return chars.replace("(", " ( ").replace(")", " ) ").split()
 
 
-def parse(program: str) -> Exp:
+def parse(program: str):
     # reads a scheme expression from a string
     return read_from_tokens(tokenize(program))
 
 
-def read_from_tokens(tokens: list) -> Exp:
+def read_from_tokens(tokens: list):
     # read an expression from a sequence of tokens
     if len(tokens) == 0:
         raise SyntaxError("unexpected EOF")
@@ -190,16 +210,6 @@ def read_from_tokens(tokens: list) -> Exp:
         raise SyntaxError("unexpected )")
     else:
         return atom(token)
-
-
-def atom(token: str) -> Atom:
-    try:
-        return int(token)
-    except ValueError:
-        try:
-            return float(token)
-        except ValueError:
-            return Symbol(token)
 
 
 def eval(x: Exp, env=global_env):
